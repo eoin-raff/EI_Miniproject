@@ -2,7 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-using Kinect = Windows.Kinect;
+using Windows.Kinect;
 using Joint = Windows.Kinect.Joint;
 
 public class LabanDescriptors : MonoBehaviour
@@ -11,74 +11,42 @@ public class LabanDescriptors : MonoBehaviour
     private BodySourceManager _BodyManager;
 
     private Dictionary<ulong, GameObject> _Bodies = new Dictionary<ulong, GameObject>();
-    private Dictionary<Kinect.JointType, Kinect.JointType> _BoneMap = new Dictionary<Kinect.JointType, Kinect.JointType>()
+    private List<JointType> _Joints = new List<JointType>
     {
-        { Kinect.JointType.FootLeft, Kinect.JointType.AnkleLeft },
-        { Kinect.JointType.AnkleLeft, Kinect.JointType.KneeLeft },
-        { Kinect.JointType.KneeLeft, Kinect.JointType.HipLeft },
-        { Kinect.JointType.HipLeft, Kinect.JointType.SpineBase },
+        JointType.FootLeft,
+        JointType.AnkleLeft,
+        JointType.KneeLeft, 
+        JointType.HipLeft,
 
-        { Kinect.JointType.FootRight, Kinect.JointType.AnkleRight },
-        { Kinect.JointType.AnkleRight, Kinect.JointType.KneeRight },
-        { Kinect.JointType.KneeRight, Kinect.JointType.HipRight },
-        { Kinect.JointType.HipRight, Kinect.JointType.SpineBase },
+        JointType.FootRight, 
+        JointType.AnkleRight, 
+        JointType.KneeRight,
+        JointType.HipRight,
 
-        { Kinect.JointType.HandTipLeft, Kinect.JointType.HandLeft },
-        { Kinect.JointType.ThumbLeft, Kinect.JointType.HandLeft },
-        { Kinect.JointType.HandLeft, Kinect.JointType.WristLeft },
-        { Kinect.JointType.WristLeft, Kinect.JointType.ElbowLeft },
-        { Kinect.JointType.ElbowLeft, Kinect.JointType.ShoulderLeft },
-        { Kinect.JointType.ShoulderLeft, Kinect.JointType.SpineShoulder },
+        JointType.HandTipLeft,
+        JointType.ThumbLeft,
+        JointType.HandLeft,
+        JointType.WristLeft,
+        JointType.ElbowLeft,
+        JointType.ShoulderLeft,
 
-        { Kinect.JointType.HandTipRight, Kinect.JointType.HandRight },
-        { Kinect.JointType.ThumbRight, Kinect.JointType.HandRight },
-        { Kinect.JointType.HandRight, Kinect.JointType.WristRight },
-        { Kinect.JointType.WristRight, Kinect.JointType.ElbowRight },
-        { Kinect.JointType.ElbowRight, Kinect.JointType.ShoulderRight },
-        { Kinect.JointType.ShoulderRight, Kinect.JointType.SpineShoulder },
-
-        { Kinect.JointType.SpineBase, Kinect.JointType.SpineMid },
-        { Kinect.JointType.SpineMid, Kinect.JointType.SpineShoulder },
-        { Kinect.JointType.SpineShoulder, Kinect.JointType.Neck },
-        { Kinect.JointType.Neck, Kinect.JointType.Head },
-    };
-    private List<Kinect.JointType> _Joints = new List<Kinect.JointType>
-    {
-        Kinect.JointType.FootLeft,
-        Kinect.JointType.AnkleLeft,
-        Kinect.JointType.KneeLeft, 
-        Kinect.JointType.HipLeft,
-
-        Kinect.JointType.FootRight, 
-        Kinect.JointType.AnkleRight, 
-        Kinect.JointType.KneeRight,
-        Kinect.JointType.HipRight,
-
-        Kinect.JointType.HandTipLeft,
-        Kinect.JointType.ThumbLeft,
-        Kinect.JointType.HandLeft,
-        Kinect.JointType.WristLeft,
-        Kinect.JointType.ElbowLeft,
-        Kinect.JointType.ShoulderLeft,
-        Kinect.JointType.SpineShoulder,
-
-        Kinect.JointType.HandTipRight, 
-        Kinect.JointType.ThumbRight, 
-        Kinect.JointType.HandRight, 
-        Kinect.JointType.WristRight,
-        Kinect.JointType.ElbowRight,
-        Kinect.JointType.ShoulderRight, 
+        JointType.HandTipRight, 
+        JointType.ThumbRight, 
+        JointType.HandRight, 
+        JointType.WristRight,
+        JointType.ElbowRight,
+        JointType.ShoulderRight, 
         
-        Kinect.JointType.SpineShoulder,
-
-        Kinect.JointType.SpineBase,
-        Kinect.JointType.SpineMid,
-        Kinect.JointType.SpineShoulder, 
-        Kinect.JointType.Neck, 
-        Kinect.JointType.Head
+        JointType.SpineBase,
+        JointType.SpineMid,
+        JointType.SpineShoulder, 
+        JointType.Neck, 
+        JointType.Head
     };
-    //Only works for one person!!!
-    public Dictionary<Kinect.JointType, Transform> JointPositions = new Dictionary<Kinect.JointType, Transform>();
+
+    private Dictionary<ulong, Dictionary<JointType, Transform>> BodyJoints = new Dictionary<ulong, Dictionary<JointType, Transform>>();
+    private Dictionary<ulong, Dictionary<JointType, Vector3>> BodyJoints_Velocity = new Dictionary<ulong, Dictionary<JointType, Vector3>>();
+    private Dictionary<ulong, Dictionary<JointType, Vector3>> BodyJoints_PrevPos = new Dictionary<ulong, Dictionary<JointType, Vector3>>();
 
 
     void Update()
@@ -95,7 +63,7 @@ public class LabanDescriptors : MonoBehaviour
             return;
         }
 
-        Kinect.Body[] data = _BodyManager.GetData();
+        Body[] data = _BodyManager.GetData();
         if (data == null)
         {
             return;
@@ -130,6 +98,7 @@ public class LabanDescriptors : MonoBehaviour
         }
         #endregion
 
+        #region Create Kinect Bodies
         foreach (var body in data)
         {
             if (body == null)
@@ -144,60 +113,87 @@ public class LabanDescriptors : MonoBehaviour
                     _Bodies[body.TrackingId] = CreateBodyObject(body.TrackingId);
                 }
 
-                RefreshBodyObject(body, _Bodies[body.TrackingId]);
-                print(body.Joints.Values);
+                UpdateBodyObject(body, body.TrackingId);
+               // print(body.Joints.Values);
             }
         }
+        #endregion
 
-        print("root position: " + GetJointPosition(Kinect.JointType.SpineBase).position);
-
+        #region Laban Descriptors
+        foreach (ulong id in trackedIds)
+        {
+            WeightEffort(id);
+        }
+        #endregion
     }
 
     private GameObject CreateBodyObject(ulong id)
     {
-        GameObject body = new GameObject("Body:" + id);
+        GameObject body = new GameObject("body_" + id);
+        Dictionary<JointType, Transform> JointTransforms = new Dictionary<JointType, Transform>();
+        Dictionary<JointType, Vector3> JointVelocity = new Dictionary<JointType, Vector3>();
+        Dictionary<JointType, Vector3> JointPrevPos = new Dictionary<JointType, Vector3>();
 
-        for (Kinect.JointType jt = Kinect.JointType.SpineBase; jt <= Kinect.JointType.ThumbRight; jt++)
+        foreach (JointType joint in _Joints)
         {
             GameObject jointObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
-
             jointObj.transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
-            jointObj.name = jt.ToString();
+            jointObj.name = joint.ToString();
             jointObj.transform.parent = body.transform;
-            JointPositions.Add(jt, jointObj.transform);
-        }
 
+            JointTransforms.Add(joint, jointObj.transform);
+            JointVelocity.Add(joint, Vector3.zero);
+            JointPrevPos.Add(joint, jointObj.transform.position);
+        }
+        BodyJoints.Add(id, JointTransforms);
+        BodyJoints_Velocity.Add(id, JointVelocity);
+        BodyJoints_PrevPos.Add(id, JointPrevPos);
         return body;
     }
 
-    private void RefreshBodyObject(Kinect.Body body, GameObject bodyObject)
+    private void UpdateBodyObject(Body body, ulong id)
     {
-        for (Kinect.JointType jt = Kinect.JointType.SpineBase; jt <= Kinect.JointType.ThumbRight; jt++)
+        GameObject bodyObject = _Bodies[id];
+        Dictionary<JointType, Transform> JointTransforms = BodyJoints[id];
+        Dictionary<JointType, Vector3> JointVelocity = BodyJoints_Velocity[id];
+        Dictionary<JointType, Vector3> JointPrevPos = BodyJoints_PrevPos[id];
+        foreach (JointType joint in _Joints)
         {
-            Kinect.Joint sourceJoint = body.Joints[jt];
-            Kinect.Joint? targetJoint = null;
+            Joint sourceJoint = body.Joints[joint];
+            Vector3 targetPosition = GetVector3FromJoint(sourceJoint);
 
-            if (_BoneMap.ContainsKey(jt))
-            {
-                targetJoint = body.Joints[_BoneMap[jt]];
-            }
-
-            Transform jointObj = bodyObject.transform.Find(jt.ToString());
+            Transform jointObj = bodyObject.transform.Find(joint.ToString());
             jointObj.localPosition = GetVector3FromJoint(sourceJoint);
+            JointTransforms[joint] = jointObj.transform;
+            JointVelocity[joint] = (JointTransforms[joint].position - JointPrevPos[joint]) / Time.deltaTime;
+            JointPrevPos[joint] = jointObj.transform.position;
         }
     }
 
-    private static Vector3 GetVector3FromJoint(Kinect.Joint joint)
+    private static Vector3 GetVector3FromJoint(Joint joint)
     {
         return new Vector3(joint.Position.X * 10, joint.Position.Y * 10, joint.Position.Z * 10);
     }
 
-    private Transform GetJointPosition(Kinect.JointType jointType)
+    private void WeightEffort(ulong id)
     {
-        if (!JointPositions.ContainsKey(jointType))
+        List<JointType> joints = new List<JointType>
         {
-            return null;
+            JointType.SpineBase,
+            JointType.FootLeft,
+            JointType.FootRight,
+            JointType.HandTipLeft,
+            JointType.HandTipRight
+        };
+
+        Dictionary<JointType, Transform> JointTransforms = BodyJoints[id];
+        Dictionary<JointType, Vector3> JointVelocity = BodyJoints_Velocity[id];
+        Dictionary<JointType, Vector3> JointPrevPos = BodyJoints_PrevPos[id];
+
+        foreach (JointType joint in joints)
+        { 
+            if (joint == JointType.SpineBase)
+                print("Body: " + id + " \nJoint: " + joint.ToString() + " Velocity: " + JointVelocity[joint]);
         }
-        return JointPositions[jointType];
     }
 }
