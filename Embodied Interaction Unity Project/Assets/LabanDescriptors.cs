@@ -48,6 +48,7 @@ public class LabanDescriptors : MonoBehaviour
     private Dictionary<ulong, Dictionary<JointType, Vector3>> BodyJoints_Velocity = new Dictionary<ulong, Dictionary<JointType, Vector3>>();
     private Dictionary<ulong, Dictionary<JointType, Vector3>> BodyJoints_PrevPos = new Dictionary<ulong, Dictionary<JointType, Vector3>>();
 
+    private Dictionary<ulong, float[]> BodyWeightEffort = new Dictionary<ulong, float[]>();
 
     void Update()
     {
@@ -122,7 +123,8 @@ public class LabanDescriptors : MonoBehaviour
         #region Laban Descriptors
         foreach (ulong id in trackedIds)
         {
-            WeightEffort(id);
+            // TODO: Get Max weight over time frame
+            print("weight: " + WeightEffort(id));
         }
         #endregion
     }
@@ -175,7 +177,7 @@ public class LabanDescriptors : MonoBehaviour
         return new Vector3(joint.Position.X * 10, joint.Position.Y * 10, joint.Position.Z * 10);
     }
 
-    private void WeightEffort(ulong id)
+    private float WeightEffort(ulong id)
     {
         List<JointType> joints = new List<JointType>
         {
@@ -190,10 +192,13 @@ public class LabanDescriptors : MonoBehaviour
         Dictionary<JointType, Vector3> JointVelocity = BodyJoints_Velocity[id];
         Dictionary<JointType, Vector3> JointPrevPos = BodyJoints_PrevPos[id];
 
+        float weight = 0;
         foreach (JointType joint in joints)
-        { 
-            if (joint == JointType.SpineBase)
-                print("Body: " + id + " \nJoint: " + joint.ToString() + " Velocity: " + JointVelocity[joint]);
+        {
+            weight += JointVelocity[joint].sqrMagnitude; //*alpha[joint] == weight coefficient (we call this 1 for now)
+            //if (joint == JointType.SpineBase)
+            //    print("Body: " + id + " \nJoint: " + joint.ToString() + " Velocity: " + JointVelocity[joint]);
         }
+        return weight;
     }
 }
