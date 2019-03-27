@@ -149,7 +149,7 @@ public class LabanDescriptors : MonoBehaviour
             }
         }
 
-        print("root position: " + GetJointPosition(Kinect.JointType.SpineBase));
+        print("root position: " + GetJointPosition(Kinect.JointType.SpineBase).position);
 
     }
 
@@ -192,8 +192,12 @@ public class LabanDescriptors : MonoBehaviour
         return new Vector3(joint.Position.X * 10, joint.Position.Y * 10, joint.Position.Z * 10);
     }
 
-    private Vector3 GetJointPosition(Kinect.JointType jointType)
+    private Transform GetJointPosition(Kinect.JointType jointType)
     {
-        return JointPositions[jointType].position;
+        if (!JointPositions.ContainsKey(jointType))
+        {
+            return null;
+        }
+        return JointPositions[jointType];
     }
 }
