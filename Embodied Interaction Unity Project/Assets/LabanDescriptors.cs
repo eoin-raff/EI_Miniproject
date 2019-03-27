@@ -48,7 +48,11 @@ public class LabanDescriptors : MonoBehaviour
     private Dictionary<ulong, Dictionary<JointType, Vector3>> BodyJoints_Velocity = new Dictionary<ulong, Dictionary<JointType, Vector3>>();
     private Dictionary<ulong, Dictionary<JointType, Vector3>> BodyJoints_PrevPos = new Dictionary<ulong, Dictionary<JointType, Vector3>>();
 
-    private Dictionary<ulong, float[]> BodyWeightEffort = new Dictionary<ulong, float[]>();
+    private Dictionary<ulong, List<float>> WeightEffortCalculator = new Dictionary<ulong, List<float>>();
+    public Dictionary<ulong, float> BodyWeightEffort = new Dictionary<ulong, float>();
+
+
+    bool weightCRrunning = false;
 
     void Update()
     {
@@ -115,7 +119,6 @@ public class LabanDescriptors : MonoBehaviour
                 }
 
                 UpdateBodyObject(body, body.TrackingId);
-               // print(body.Joints.Values);
             }
         }
         #endregion
@@ -123,8 +126,10 @@ public class LabanDescriptors : MonoBehaviour
         #region Laban Descriptors
         foreach (ulong id in trackedIds)
         {
-            // TODO: Get Max weight over time frame
-            print("weight: " + WeightEffort(id));
+            WeightEffortCalculator[id].Add(WeightEffort(id));
+            if (!weightCRrunning)
+                StartCoroutine(GetMaxOverTime(id, WeightEffortCalculator[id], 0.05f, weightCRrunning));
+            print("Effort: " + BodyWeightEffort[id]);
         }
         #endregion
     }
@@ -142,14 +147,18 @@ public class LabanDescriptors : MonoBehaviour
             jointObj.transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
             jointObj.name = joint.ToString();
             jointObj.transform.parent = body.transform;
-
+            //Initialize Joint Dictionaries
             JointTransforms.Add(joint, jointObj.transform);
             JointVelocity.Add(joint, Vector3.zero);
             JointPrevPos.Add(joint, jointObj.transform.position);
         }
+        //Initialize whole body Dictionaries
         BodyJoints.Add(id, JointTransforms);
         BodyJoints_Velocity.Add(id, JointVelocity);
         BodyJoints_PrevPos.Add(id, JointPrevPos);
+        BodyWeightEffort[id] = 0;
+        WeightEffortCalculator.Add(id, new List<float>());
+
         return body;
     }
 
@@ -200,5 +209,17 @@ public class LabanDescriptors : MonoBehaviour
             //    print("Body: " + id + " \nJoint: " + joint.ToString() + " Velocity: " + JointVelocity[joint]);
         }
         return weight;
+    }
+
+    IEnumerator GetMaxOverTime(ulong id, List<float> list, float seconds, bool trigger)
+    {
+        trigger = true;
+        yield return new WaitForSeconds(seconds);
+
+        float[] array = list.ToArray();
+        float max = Mathf.Max(array);
+        list.Clear();
+        trigger = false;
+        yield return BodyWeightEffort[id] = max;
     }
 }
