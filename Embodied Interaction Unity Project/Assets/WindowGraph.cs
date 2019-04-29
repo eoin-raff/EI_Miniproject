@@ -11,10 +11,18 @@ public class WindowGraph : MonoBehaviour
     [SerializeField]
     private Sprite circleSprite;
 
-    private void Start()
+    public List<float> Data { get; set; }
+
+    private void Update()
     {
-        List<float> values = new List<float> { 33f, 13f, 75f, 10f, 15f, 16f, 17f, 26f, 37f, 27f, 38f, 87f, 75f, 50 };
-        ShowGraph(values);
+        //List<float> values = new List<float> { 33f, 13f, 75f, 10f, 15f, 16f, 17f, 26f, 37f, 27f, 38f, 87f, 75f, 50 };
+        if (Data == null || Data.Count < 1)
+            return;
+        if (Data.Count > UIController.Instance.maxLength)
+        {
+            Data.RemoveRange(0, Data.Count - UIController.Instance.maxLength);
+        }
+        ShowGraph(Data);
     }
     private GameObject createCircle(Vector2 anchoredPosition)
     {
@@ -32,7 +40,18 @@ public class WindowGraph : MonoBehaviour
     private void ShowGraph(List<float> values)
     {
         float graphHeight = graphContainer.sizeDelta.y;
-        float yMaximum = 100f;
+
+        float yMaximum = 0f;
+
+        foreach (float value in values)
+        {
+            if (value > yMaximum)
+            {
+                yMaximum = value;
+            }
+        }
+        yMaximum *= 1.2f;
+
         float xSize = 50f;
         GameObject previousCircle = null;
         for (int i = 0; i < values.Count; i++)
