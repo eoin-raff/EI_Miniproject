@@ -6,6 +6,13 @@ using Joint = Windows.Kinect.Joint;
 
 public class LabanDescriptors : MonoBehaviour
 {
+    // Vectors
+    Vector3 faceNormal;   //Normal vector of the plane of head/shoulders
+    Vector3 faceLeft;     //Vector from face to left shoulder needed to describe the plane
+    Vector3 faceRight;    //Same as above, but for right
+    Vector3 root;         //Root joint
+
+
     //Enum defining types of efforts
     private enum Efforts { Weight, Space, Time, Flow };
 
@@ -218,8 +225,21 @@ public class LabanDescriptors : MonoBehaviour
                 StartCoroutine(CalculateFinalEffort(id, FlowEffortRealTime[id], 0.05f, Efforts.Flow));
 
             if (!effortCalculationsRunning[Efforts.Space])
-                StartCoroutine(CalculateFinalEffort(id, SpaceEffortRealTime[id], 0.05f, Efforts.Space));
-                
+                StartCoroutine(CalculateFinalEffort(id, SpaceEffortRealTime[id], 0.5f, Efforts.Space));
+            
+
+            //FIXME
+            // UI ONLY WORKS WITH ONE BODY
+            if (BodyWeightEffort[id] > 0)
+                WeightEffort = BodyWeightEffort[id];
+
+            //if (BodyTimeEffort[id] > 0)
+                TimeEffort = BodyTimeEffort[id];
+
+                SpaceEffort = BodySpaceEffort[id];
+
+            if (BodyFlowEffort[id] > 0)
+                FlowEffort = BodyFlowEffort[id];
         }
         #endregion
 
@@ -319,8 +339,16 @@ public class LabanDescriptors : MonoBehaviour
                 }
                 break;
             case Efforts.Space:
-                // Inner product of root velocity and the normal vector of the trangle formed by the head and both shoulders.
-                break;
+                    // TODO: Try a different root joint, try different coroutine intervals
+                    // Inner product of root velocity and the normal vector of the trangle formed by the head and both shoulders.
+                    faceLeft = JointTransforms[JointType.Head].position - JointTransforms[JointType.ShoulderLeft].position;
+                    faceRight = JointTransforms[JointType.Head].position - JointTransforms[JointType.ShoulderRight].position;
+                    faceNormal = Vector3.Cross(faceRight, faceLeft);
+
+                    root = velocity[JointType.SpineBase];
+
+                    weight = Vector3.Dot(faceNormal, root);
+                    break;
             case Efforts.Time:
                 foreach (JointType joint in joints)
                 {
@@ -337,6 +365,7 @@ public class LabanDescriptors : MonoBehaviour
                 break;
             default:
                 break;
+
         }
         return weight;
     }
@@ -360,8 +389,16 @@ public class LabanDescriptors : MonoBehaviour
                 break;
 
             case Efforts.Space:
-                SpaceEffort = BodySpaceEffort[id];
-                UIController.Instance.spaceData.Add(SpaceEffort);
+
+                array = list.ToArray();
+                float cumSum = 0;
+                for (int i = 0; i < array.Length; i++)
+                {
+                    cumSum += array[i];
+                }
+                cumSum /= array.Length;
+                list.Clear();
+                yield return BodySpaceEffort[id] = cumSum;
                 break;
 
             case Efforts.Time:
