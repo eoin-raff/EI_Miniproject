@@ -347,7 +347,7 @@ public class LabanDescriptors : MonoBehaviour
 
                     root = velocity[JointType.SpineBase];
 
-                    weight = Vector3.Dot(faceNormal, root);
+                    weight = Mathf.Abs(Vector3.Dot(faceNormal, root));
                     break;
             case Efforts.Time:
                 foreach (JointType joint in joints)
@@ -389,7 +389,7 @@ public class LabanDescriptors : MonoBehaviour
                 break;
 
             case Efforts.Space:
-
+                // TODO: fix me???
                 array = list.ToArray();
                 float cumSum = 0;
                 for (int i = 0; i < array.Length; i++)
