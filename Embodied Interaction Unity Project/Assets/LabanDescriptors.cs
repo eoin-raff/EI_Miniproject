@@ -7,10 +7,18 @@ using Joint = Windows.Kinect.Joint;
 
 public class LabanDescriptors : MonoBehaviour
 {
+    //Enum defining types of efforts
+    private enum Efforts { Weight, Space, Time, Flow };
+
+    //Kinect Dependencies
     public GameObject BodySourceManager;
     private BodySourceManager _BodyManager;
 
+    // All Bodies tracked by the Kinect
     private Dictionary<ulong, GameObject> _Bodies = new Dictionary<ulong, GameObject>();
+
+    //List of joints that will be used to measure efforts - can be altered to just get individual limbs or joints.
+
     private List<JointType> _Joints = new List<JointType>
     {
         JointType.FootLeft,
@@ -44,16 +52,78 @@ public class LabanDescriptors : MonoBehaviour
         JointType.Head
     };
 
+    // List of joints used for each specific weight
+    private Dictionary<Efforts, List<JointType>> effortJoints = new Dictionary<Efforts, List<JointType>>();
+    private List<JointType> weightJoints = new List<JointType>
+        {
+            JointType.SpineBase,
+            JointType.FootLeft,
+            JointType.FootRight,
+            JointType.HandTipLeft,
+            JointType.HandTipRight
+        };
+    private List<JointType> timeJoints = new List<JointType>
+        {
+            JointType.SpineBase,
+            JointType.FootLeft,
+            JointType.FootRight,
+            JointType.HandTipLeft,
+            JointType.HandTipRight
+        };
+    private List<JointType> spaceJoints = new List<JointType>
+        {
+            JointType.Head,
+            JointType.ShoulderLeft,
+            JointType.ShoulderRight
+        };
+    private List<JointType> flowJoints = new List<JointType>
+        {
+        //doesn't specify which joints to use for flow calculations
+            JointType.SpineBase,
+            JointType.FootLeft,
+            JointType.FootRight,
+            JointType.HandTipLeft,
+            JointType.HandTipRight
+        };
+
+    // Transforms (Position & Rotation), Velocity, and Previous Positions (used for velocity calculations) of each Joint
+
     private Dictionary<ulong, Dictionary<JointType, Transform>> BodyJoints = new Dictionary<ulong, Dictionary<JointType, Transform>>();
     private Dictionary<ulong, Dictionary<JointType, Vector3>> BodyJoints_Velocity = new Dictionary<ulong, Dictionary<JointType, Vector3>>();
     private Dictionary<ulong, Dictionary<JointType, Vector3>> BodyJoints_PrevPos = new Dictionary<ulong, Dictionary<JointType, Vector3>>();
 
-    private Dictionary<ulong, List<float>> WeightEffortCalculator = new Dictionary<ulong, List<float>>();
-    public Dictionary<ulong, float> BodyWeightEffort = new Dictionary<ulong, float>();
+    // Frame by Frame values for each Effort per tracked body.
 
+    private Dictionary<ulong, List<float>> WeightEffortCalculator = new Dictionary<ulong, List<float>>();
+    private Dictionary<ulong, List<float>> TimeEffortCalculator = new Dictionary<ulong, List<float>>();
+    private Dictionary<ulong, List<float>> SpaceEffortCalculator = new Dictionary<ulong, List<float>>();
+    private Dictionary<ulong, List<float>> FlowEffortCalculator = new Dictionary<ulong, List<float>>();
+
+    // Final Effort values for each tracked body
+
+    public Dictionary<ulong, float> BodyWeightEffort = new Dictionary<ulong, float>();
+    public Dictionary<ulong, float> BodyTimeEffort = new Dictionary<ulong, float>();
+    public Dictionary<ulong, float> BodySpaceEffort = new Dictionary<ulong, float>();
+    public Dictionary<ulong, float> BodyFlowEffort = new Dictionary<ulong, float>();
+
+    //Public Accessors for Effort Values. Currently only returns for one body and needs to be refactored to allow more.
     public float WeightEffortValue { get; private set; }
 
-    bool weightCRrunning = false;
+    //Triggers for running Calculation Coroutines at distinct time intervals
+    private Dictionary<Efforts, bool> effortCalculationsRunning = new Dictionary<Efforts, bool> {
+        [Efforts.Weight] = false,
+        [Efforts.Flow] = false,
+        [Efforts.Time] = false,
+        [Efforts.Space] = false,
+    };
+
+    private void Start()
+    {
+        effortJoints.Add(Efforts.Weight, weightJoints);
+        effortJoints.Add(Efforts.Time, timeJoints);
+        effortJoints.Add(Efforts.Space, spaceJoints);
+        effortJoints.Add(Efforts.Flow, flowJoints);
+    }
 
     void Update()
     {
@@ -127,10 +197,15 @@ public class LabanDescriptors : MonoBehaviour
         #region Laban Descriptors
         foreach (ulong id in trackedIds)
         {
-            WeightEffortCalculator[id].Add(WeightEffort(id));
-            if (!weightCRrunning)
-                StartCoroutine(GetMaxOverTime(id, WeightEffortCalculator[id], 0.05f, weightCRrunning));
+            WeightEffortCalculator[id].Add(CalculateEffort(id, Efforts.Weight));
+            SpaceEffortCalculator[id].Add(CalculateEffort(id, Efforts.Space));
+            TimeEffortCalculator[id].Add(CalculateEffort(id, Efforts.Time));
+            FlowEffortCalculator[id].Add(CalculateEffort(id, Efforts.Flow));
+
+            if (!effortCalculationsRunning[Efforts.Weight]) ;
+                StartCoroutine(GetMaxOverTime(id, WeightEffortCalculator[id], 0.05f, Efforts.Weight));
             print("Effort: " + BodyWeightEffort[id]);
+            //FIXME
             // UI ONLY WORKS WITH ONE BODY
             if (BodyWeightEffort[id] > 0)
             {
@@ -164,6 +239,9 @@ public class LabanDescriptors : MonoBehaviour
         BodyJoints_PrevPos.Add(id, JointPrevPos);
         BodyWeightEffort[id] = 0;
         WeightEffortCalculator.Add(id, new List<float>());
+        SpaceEffortCalculator.Add(id, new List<float>());
+        TimeEffortCalculator.Add(id, new List<float>());
+        FlowEffortCalculator.Add(id, new List<float>());
 
         return body;
     }
@@ -217,16 +295,109 @@ public class LabanDescriptors : MonoBehaviour
         return weight;
     }
 
-    IEnumerator GetMaxOverTime(ulong id, List<float> list, float seconds, bool trigger)
+    private float TimeEffort(ulong id)
+    {
+        List<JointType> joints = new List<JointType>
+        {
+            JointType.SpineBase,
+            JointType.FootLeft,
+            JointType.FootRight,
+            JointType.HandTipLeft,
+            JointType.HandTipRight
+        };
+
+        Dictionary<JointType, Transform> JointTransforms = BodyJoints[id];
+        Dictionary<JointType, Vector3> JointVelocity = BodyJoints_Velocity[id];
+        Dictionary<JointType, Vector3> JointPrevPos = BodyJoints_PrevPos[id];
+
+        float weight = 0;
+        foreach (JointType joint in joints)
+        {
+            //TODO: CALCULATIONS
+        }
+        return weight;
+    }
+
+    private float SpaceEffort(ulong id)
+    {
+        List<JointType> joints = new List<JointType>
+        {
+            JointType.SpineBase,
+            JointType.FootLeft,
+            JointType.FootRight,
+            JointType.HandTipLeft,
+            JointType.HandTipRight
+        };
+
+        Dictionary<JointType, Transform> JointTransforms = BodyJoints[id];
+        Dictionary<JointType, Vector3> JointVelocity = BodyJoints_Velocity[id];
+        Dictionary<JointType, Vector3> JointPrevPos = BodyJoints_PrevPos[id];
+
+        float weight = 0;
+        foreach (JointType joint in joints)
+        {
+            weight += JointVelocity[joint].sqrMagnitude; //*alpha[joint] == weight coefficient (we call this 1 for now)
+            //if (joint == JointType.SpineBase)
+            //    print("Body: " + id + " \nJoint: " + joint.ToString() + " Velocity: " + JointVelocity[joint]);
+        }
+        return weight;
+    }
+
+    private float CalculateEffort(ulong id, Efforts effort)
+    {
+        List<JointType> joints = effortJoints[effort];
+        Dictionary<JointType, Transform> JointTransforms = BodyJoints[id];
+        Dictionary<JointType, Vector3> JointVelocity = BodyJoints_Velocity[id];
+        Dictionary<JointType, Vector3> JointPrevPos = BodyJoints_PrevPos[id];
+
+        float weight = 0;
+        foreach (JointType joint in joints)
+        {
+            switch (effort)
+            {
+                case Efforts.Weight:
+                    weight += JointVelocity[joint].sqrMagnitude;
+                    break;
+                case Efforts.Space:
+                    weight = 0;
+                    break;
+                case Efforts.Time:
+                    //Sum of accelerations over time of representative joints (Root, Finger, Toes)
+                    weight = 0;
+                    break;
+                case Efforts.Flow:
+                    weight = 0;
+                    break;
+                default:
+                    break;
+            }
+        }
+        return weight;
+    }
+
+    IEnumerator GetMaxOverTime(ulong id, List<float> list, float seconds, Efforts effort)
     {
         //REMOVE ID AND JUST RETURN MAX ---- i.e. BodyWeightEffort[id] = StartCoroutine(GetMaxOverTime(List, seconds, trigger))
-        trigger = true;
+        effortCalculationsRunning[effort] = true;
         yield return new WaitForSeconds(seconds);
 
         float[] array = list.ToArray();
         float max = Mathf.Max(array);
         list.Clear();
-        trigger = false;
-        yield return BodyWeightEffort[id] = max;
+        effortCalculationsRunning[effort] = false;
+        switch (effort)
+        {
+            case Efforts.Weight:
+                yield return BodyWeightEffort[id] = max;
+                break;
+            case Efforts.Space:
+                break;
+            case Efforts.Time:
+                break;
+            case Efforts.Flow:
+                break;
+            default:
+                break;
+        }
     }
 }
