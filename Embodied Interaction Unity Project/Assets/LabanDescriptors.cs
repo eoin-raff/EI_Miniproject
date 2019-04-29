@@ -100,7 +100,6 @@ public class LabanDescriptors : MonoBehaviour
     private Dictionary<ulong, List<float>> FlowEffortCalculator = new Dictionary<ulong, List<float>>();
 
     // Final Effort values for each tracked body
-
     public Dictionary<ulong, float> BodyWeightEffort = new Dictionary<ulong, float>();
     public Dictionary<ulong, float> BodyTimeEffort = new Dictionary<ulong, float>();
     public Dictionary<ulong, float> BodySpaceEffort = new Dictionary<ulong, float>();
@@ -268,79 +267,6 @@ public class LabanDescriptors : MonoBehaviour
     private static Vector3 GetVector3FromJoint(Joint joint)
     {
         return new Vector3(joint.Position.X * 10, joint.Position.Y * 10, joint.Position.Z * 10);
-    }
-
-    private float WeightEffort(ulong id)
-    {
-        List<JointType> joints = new List<JointType>
-        {
-            JointType.SpineBase,
-            JointType.FootLeft,
-            JointType.FootRight,
-            JointType.HandTipLeft,
-            JointType.HandTipRight
-        };
-
-        Dictionary<JointType, Transform> JointTransforms = BodyJoints[id];
-        Dictionary<JointType, Vector3> JointVelocity = BodyJoints_Velocity[id];
-        Dictionary<JointType, Vector3> JointPrevPos = BodyJoints_PrevPos[id];
-
-        float weight = 0;
-        foreach (JointType joint in joints)
-        {
-            weight += JointVelocity[joint].sqrMagnitude; //*alpha[joint] == weight coefficient (we call this 1 for now)
-            //if (joint == JointType.SpineBase)
-            //    print("Body: " + id + " \nJoint: " + joint.ToString() + " Velocity: " + JointVelocity[joint]);
-        }
-        return weight;
-    }
-
-    private float TimeEffort(ulong id)
-    {
-        List<JointType> joints = new List<JointType>
-        {
-            JointType.SpineBase,
-            JointType.FootLeft,
-            JointType.FootRight,
-            JointType.HandTipLeft,
-            JointType.HandTipRight
-        };
-
-        Dictionary<JointType, Transform> JointTransforms = BodyJoints[id];
-        Dictionary<JointType, Vector3> JointVelocity = BodyJoints_Velocity[id];
-        Dictionary<JointType, Vector3> JointPrevPos = BodyJoints_PrevPos[id];
-
-        float weight = 0;
-        foreach (JointType joint in joints)
-        {
-            //TODO: CALCULATIONS
-        }
-        return weight;
-    }
-
-    private float SpaceEffort(ulong id)
-    {
-        List<JointType> joints = new List<JointType>
-        {
-            JointType.SpineBase,
-            JointType.FootLeft,
-            JointType.FootRight,
-            JointType.HandTipLeft,
-            JointType.HandTipRight
-        };
-
-        Dictionary<JointType, Transform> JointTransforms = BodyJoints[id];
-        Dictionary<JointType, Vector3> JointVelocity = BodyJoints_Velocity[id];
-        Dictionary<JointType, Vector3> JointPrevPos = BodyJoints_PrevPos[id];
-
-        float weight = 0;
-        foreach (JointType joint in joints)
-        {
-            weight += JointVelocity[joint].sqrMagnitude; //*alpha[joint] == weight coefficient (we call this 1 for now)
-            //if (joint == JointType.SpineBase)
-            //    print("Body: " + id + " \nJoint: " + joint.ToString() + " Velocity: " + JointVelocity[joint]);
-        }
-        return weight;
     }
 
     private float CalculateEffort(ulong id, Efforts effort)
