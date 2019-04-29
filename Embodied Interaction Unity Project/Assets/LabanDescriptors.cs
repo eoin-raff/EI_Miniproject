@@ -285,8 +285,10 @@ public class LabanDescriptors : MonoBehaviour
             transform[joint] = jointObj.transform;
             Vector3 previousVelocity = velocity[joint];
             velocity[joint] = (transform[joint].position - previousPosition[joint]) / (Time.deltaTime * 2);
-            acceleration[joint] = ((transform[joint].position + velocity[joint]) - (2 * transform[joint].position) + previousPosition[joint])/(Time.deltaTime * Time.deltaTime);
-            jerk[joint] = ((transform[joint].position + 2*velocity[joint]) - 2*(transform[joint].position + velocity[joint]) + 2* (previousPosition[joint]) - (previousPosition[joint]-previousVelocity))/ (2*Mathf.Pow(Time.deltaTime, 3));
+            acceleration[joint] = ((transform[joint].position + velocity[joint] * Time.deltaTime) - (2 * transform[joint].position) + previousPosition[joint])/ (2* (Time.deltaTime * Time.deltaTime));
+
+            jerk[joint] = ((transform[joint].position + 2*velocity[joint]*Time.deltaTime) - 2*(transform[joint].position + velocity[joint]*Time.deltaTime) + 2* (previousPosition[joint]) - (previousPosition[joint]-previousVelocity*Time.deltaTime))/ (2*Mathf.Pow(Time.deltaTime, 3));
+
             previousPosition[joint] = jointObj.transform.position;
         }
     }
@@ -307,26 +309,34 @@ public class LabanDescriptors : MonoBehaviour
         //Dictionary<JointType, Vector3> JointPrevPos = BodyJoints_PrevPos[id];
 
         float weight = 0;
-        foreach (JointType joint in joints)
+        switch (effort)
         {
-            switch (effort)
-            {
-                case Efforts.Weight:
+            case Efforts.Weight:
+                foreach (JointType joint in joints)
+                {
                     weight += velocity[joint].sqrMagnitude;
-                    break;
-                case Efforts.Space:
-                    // Inner product of root velocity and the normal vector of the trangle formed by the head and both shoulders.
-                    break;
-                case Efforts.Time:
-                    weight += acceleration[joint].magnitude;
-                    break;
-                case Efforts.Flow:
-                    //aggregated Jerk over time
-                    //weight = 0;
-                    break;
-                default:
-                    break;
-            }
+                    weight /= joints.Count;
+                }
+                break;
+            case Efforts.Space:
+                // Inner product of root velocity and the normal vector of the trangle formed by the head and both shoulders.
+                break;
+            case Efforts.Time:
+                foreach (JointType joint in joints)
+                {
+                    weight += Mathf.Sqrt(acceleration[joint].sqrMagnitude);
+                    weight /= joints.Count;
+                }
+                break;
+            case Efforts.Flow:
+                foreach (JointType joint in joints)
+                {
+                    weight += Mathf.Sqrt(jerk[joint].sqrMagnitude);
+                    weight /= joints.Count;
+                }
+                break;
+            default:
+                break;
         }
         return weight;
     }
@@ -348,10 +358,12 @@ public class LabanDescriptors : MonoBehaviour
                 WeightEffort = BodyWeightEffort[id];
                 UIController.Instance.weightData.Add(WeightEffort);
                 break;
+
             case Efforts.Space:
                 SpaceEffort = BodySpaceEffort[id];
                 UIController.Instance.spaceData.Add(SpaceEffort);
                 break;
+
             case Efforts.Time:
                 array = list.ToArray();
                 float cumulativeSum = 0;
@@ -365,7 +377,17 @@ public class LabanDescriptors : MonoBehaviour
                 TimeEffort = BodyTimeEffort[id];
                 UIController.Instance.timeData.Add(TimeEffort);
                 break;
+
             case Efforts.Flow:
+                array = list.ToArray();
+                float sum = 0;
+                for (int i = 0; i < array.Length; i++)
+                {
+                    sum += array[i];
+                }
+                sum /= array.Length;
+                list.Clear();
+                BodyFlowEffort[id] = sum;
                 FlowEffort = BodyFlowEffort[id];
                 UIController.Instance.flowData.Add(FlowEffort);
                 break;
