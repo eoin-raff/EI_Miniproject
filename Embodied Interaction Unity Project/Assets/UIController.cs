@@ -33,8 +33,6 @@ public class UIController : Singleton<UIController>
         SpaceEffortDisplay.text = "Space Effort: " + labanDescriptors.SpaceEffort;
         FlowEffortDisplay.text = "Flow Effort: " + labanDescriptors.FlowEffort;
 
-
-
         weightGraph.Data = weightData;
         timeGraph.Data = timeData;
         spaceGraph.Data = spaceData;
