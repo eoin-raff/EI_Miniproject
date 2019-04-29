@@ -10,6 +10,12 @@ public class LabanDescriptors : MonoBehaviour
     //Enum defining types of efforts
     private enum Efforts { Weight, Space, Time, Flow };
 
+    //Public Accessors for Effort Values. Currently only returns for one body and needs to be refactored to allow more.
+    public float WeightEffort { get; private set; }
+    public float TimeEffort { get; private set; }
+    public float SpaceEffort { get; private set; }
+    public float FlowEffort { get; private set; }
+
     //Kinect Dependencies
     public GameObject BodySourceManager;
     private BodySourceManager _BodyManager;
@@ -72,6 +78,7 @@ public class LabanDescriptors : MonoBehaviour
         };
     private List<JointType> spaceJoints = new List<JointType>
         {
+            JointType.SpineBase,
             JointType.Head,
             JointType.ShoulderLeft,
             JointType.ShoulderRight
@@ -91,13 +98,15 @@ public class LabanDescriptors : MonoBehaviour
     private Dictionary<ulong, Dictionary<JointType, Transform>> BodyJoints = new Dictionary<ulong, Dictionary<JointType, Transform>>();
     private Dictionary<ulong, Dictionary<JointType, Vector3>> BodyJoints_Velocity = new Dictionary<ulong, Dictionary<JointType, Vector3>>();
     private Dictionary<ulong, Dictionary<JointType, Vector3>> BodyJoints_PrevPos = new Dictionary<ulong, Dictionary<JointType, Vector3>>();
+    private Dictionary<ulong, Dictionary<JointType, Vector3>> BodyJoints_Acceleration = new Dictionary<ulong, Dictionary<JointType, Vector3>>();
+    private Dictionary<ulong, Dictionary<JointType, Vector3>> BodyJoints_Jerk = new Dictionary<ulong, Dictionary<JointType, Vector3>>();
 
     // Frame by Frame values for each Effort per tracked body.
 
-    private Dictionary<ulong, List<float>> WeightEffortCalculator = new Dictionary<ulong, List<float>>();
-    private Dictionary<ulong, List<float>> TimeEffortCalculator = new Dictionary<ulong, List<float>>();
-    private Dictionary<ulong, List<float>> SpaceEffortCalculator = new Dictionary<ulong, List<float>>();
-    private Dictionary<ulong, List<float>> FlowEffortCalculator = new Dictionary<ulong, List<float>>();
+    private Dictionary<ulong, List<float>> WeightEffortRealTime = new Dictionary<ulong, List<float>>();
+    private Dictionary<ulong, List<float>> TimeEffortRealTime = new Dictionary<ulong, List<float>>();
+    private Dictionary<ulong, List<float>> SpaceEffortRealTime = new Dictionary<ulong, List<float>>();
+    private Dictionary<ulong, List<float>> FlowEffortRealTime = new Dictionary<ulong, List<float>>();
 
     // Final Effort values for each tracked body
     public Dictionary<ulong, float> BodyWeightEffort = new Dictionary<ulong, float>();
@@ -105,8 +114,7 @@ public class LabanDescriptors : MonoBehaviour
     public Dictionary<ulong, float> BodySpaceEffort = new Dictionary<ulong, float>();
     public Dictionary<ulong, float> BodyFlowEffort = new Dictionary<ulong, float>();
 
-    //Public Accessors for Effort Values. Currently only returns for one body and needs to be refactored to allow more.
-    public float WeightEffortValue { get; private set; }
+
 
     //Triggers for running Calculation Coroutines at distinct time intervals
     private Dictionary<Efforts, bool> effortCalculationsRunning = new Dictionary<Efforts, bool> {
@@ -196,22 +204,41 @@ public class LabanDescriptors : MonoBehaviour
         #region Laban Descriptors
         foreach (ulong id in trackedIds)
         {
-            WeightEffortCalculator[id].Add(CalculateEffort(id, Efforts.Weight));
-            SpaceEffortCalculator[id].Add(CalculateEffort(id, Efforts.Space));
-            TimeEffortCalculator[id].Add(CalculateEffort(id, Efforts.Time));
-            FlowEffortCalculator[id].Add(CalculateEffort(id, Efforts.Flow));
+            WeightEffortRealTime[id].Add(CalculateEffort(id, Efforts.Weight));
+            SpaceEffortRealTime[id].Add(CalculateEffort(id, Efforts.Space));
+            TimeEffortRealTime[id].Add(CalculateEffort(id, Efforts.Time));
+            FlowEffortRealTime[id].Add(CalculateEffort(id, Efforts.Flow));
 
-            if (!effortCalculationsRunning[Efforts.Weight]) ;
-                StartCoroutine(GetMaxOverTime(id, WeightEffortCalculator[id], 0.05f, Efforts.Weight));
-            print("Effort: " + BodyWeightEffort[id]);
+            if (!effortCalculationsRunning[Efforts.Weight])
+                StartCoroutine(CalculateFinalEffort(id, WeightEffortRealTime[id], 0.05f, Efforts.Weight));
+
+            if (!effortCalculationsRunning[Efforts.Time])
+                StartCoroutine(CalculateFinalEffort(id, TimeEffortRealTime[id], 0.05f, Efforts.Time));
+      
+            if (!effortCalculationsRunning[Efforts.Flow])
+                StartCoroutine(CalculateFinalEffort(id, FlowEffortRealTime[id], 0.05f, Efforts.Flow));
+
+            if (!effortCalculationsRunning[Efforts.Space])
+                StartCoroutine(CalculateFinalEffort(id, SpaceEffortRealTime[id], 0.05f, Efforts.Space));
+            
+
             //FIXME
             // UI ONLY WORKS WITH ONE BODY
             if (BodyWeightEffort[id] > 0)
-            {
-                WeightEffortValue = BodyWeightEffort[id];
-            }
+                WeightEffort = BodyWeightEffort[id];
+
+            //if (BodyTimeEffort[id] > 0)
+                TimeEffort = BodyTimeEffort[id];
+
+            if (BodySpaceEffort[id] > 0)
+                SpaceEffort = BodySpaceEffort[id];
+
+            if (BodyFlowEffort[id] > 0)
+                FlowEffort = BodyFlowEffort[id];
         }
         #endregion
+
+
     }
 
     private GameObject CreateBodyObject(ulong id)
@@ -220,6 +247,8 @@ public class LabanDescriptors : MonoBehaviour
         Dictionary<JointType, Transform> JointTransforms = new Dictionary<JointType, Transform>();
         Dictionary<JointType, Vector3> JointVelocity = new Dictionary<JointType, Vector3>();
         Dictionary<JointType, Vector3> JointPrevPos = new Dictionary<JointType, Vector3>();
+        Dictionary<JointType, Vector3> JointAcceleraion = new Dictionary<JointType, Vector3>();
+        Dictionary<JointType, Vector3> JointJerk = new Dictionary<JointType, Vector3>();
 
         foreach (JointType joint in _Joints)
         {
@@ -236,11 +265,18 @@ public class LabanDescriptors : MonoBehaviour
         BodyJoints.Add(id, JointTransforms);
         BodyJoints_Velocity.Add(id, JointVelocity);
         BodyJoints_PrevPos.Add(id, JointPrevPos);
+        BodyJoints_Acceleration.Add(id, JointAcceleraion);
+        BodyJoints_Jerk.Add(id, JointJerk);
+
         BodyWeightEffort[id] = 0;
-        WeightEffortCalculator.Add(id, new List<float>());
-        SpaceEffortCalculator.Add(id, new List<float>());
-        TimeEffortCalculator.Add(id, new List<float>());
-        FlowEffortCalculator.Add(id, new List<float>());
+        BodySpaceEffort[id] = 0;
+        BodyTimeEffort[id] = 0;
+        BodyFlowEffort[id] = 0;
+
+        WeightEffortRealTime.Add(id, new List<float>());
+        SpaceEffortRealTime.Add(id, new List<float>());
+        TimeEffortRealTime.Add(id, new List<float>());
+        FlowEffortRealTime.Add(id, new List<float>());
 
         return body;
     }
@@ -248,9 +284,12 @@ public class LabanDescriptors : MonoBehaviour
     private void UpdateBodyObject(Body body, ulong id)
     {
         GameObject bodyObject = _Bodies[id];
-        Dictionary<JointType, Transform> JointTransforms = BodyJoints[id];
-        Dictionary<JointType, Vector3> JointVelocity = BodyJoints_Velocity[id];
-        Dictionary<JointType, Vector3> JointPrevPos = BodyJoints_PrevPos[id];
+        Dictionary<JointType, Transform> transform = BodyJoints[id];
+        Dictionary<JointType, Vector3> velocity = BodyJoints_Velocity[id];
+        Dictionary<JointType, Vector3> previousPosition = BodyJoints_PrevPos[id];
+        Dictionary<JointType, Vector3> acceleration = BodyJoints_Acceleration[id];
+        Dictionary<JointType, Vector3> jerk = BodyJoints_Jerk[id];
+
         foreach (JointType joint in _Joints)
         {
             Joint sourceJoint = body.Joints[joint];
@@ -258,9 +297,12 @@ public class LabanDescriptors : MonoBehaviour
 
             Transform jointObj = bodyObject.transform.Find(joint.ToString());
             jointObj.localPosition = GetVector3FromJoint(sourceJoint);
-            JointTransforms[joint] = jointObj.transform;
-            JointVelocity[joint] = (JointTransforms[joint].position - JointPrevPos[joint]) / Time.deltaTime;
-            JointPrevPos[joint] = jointObj.transform.position;
+            transform[joint] = jointObj.transform;
+            Vector3 previousVelocity = velocity[joint];
+            velocity[joint] = (transform[joint].position - previousPosition[joint]) / (Time.deltaTime * 2);
+            acceleration[joint] = ((transform[joint].position + velocity[joint]) - (2 * transform[joint].position) + previousPosition[joint])/(Time.deltaTime * Time.deltaTime);
+            jerk[joint] = ((transform[joint].position + 2*velocity[joint]) - 2*(transform[joint].position + velocity[joint]) + 2* (previousPosition[joint]) - (previousPosition[joint]-previousVelocity))/ (2*Mathf.Pow(Time.deltaTime, 3));
+            previousPosition[joint] = jointObj.transform.position;
         }
     }
 
@@ -272,9 +314,12 @@ public class LabanDescriptors : MonoBehaviour
     private float CalculateEffort(ulong id, Efforts effort)
     {
         List<JointType> joints = effortJoints[effort];
-        Dictionary<JointType, Transform> JointTransforms = BodyJoints[id];
-        Dictionary<JointType, Vector3> JointVelocity = BodyJoints_Velocity[id];
-        Dictionary<JointType, Vector3> JointPrevPos = BodyJoints_PrevPos[id];
+        //Dictionary<JointType, Transform> JointTransforms = BodyJoints[id];
+        Dictionary<JointType, Vector3> velocity = BodyJoints_Velocity[id];
+        Dictionary<JointType, Vector3> acceleration = BodyJoints_Acceleration[id];
+        Dictionary<JointType, Vector3> jerk = BodyJoints_Jerk[id];
+
+        //Dictionary<JointType, Vector3> JointPrevPos = BodyJoints_PrevPos[id];
 
         float weight = 0;
         foreach (JointType joint in joints)
@@ -282,17 +327,17 @@ public class LabanDescriptors : MonoBehaviour
             switch (effort)
             {
                 case Efforts.Weight:
-                    weight += JointVelocity[joint].sqrMagnitude;
+                    weight += velocity[joint].sqrMagnitude;
                     break;
                 case Efforts.Space:
-                    weight = 0;
+                    // Inner product of root velocity and the normal vector of the trangle formed by the head and both shoulders.
                     break;
                 case Efforts.Time:
-                    //Sum of accelerations over time of representative joints (Root, Finger, Toes)
-                    weight = 0;
+                    weight += acceleration[joint].magnitude;
                     break;
                 case Efforts.Flow:
-                    weight = 0;
+                    //aggregated Jerk over time
+                    //weight = 0;
                     break;
                 default:
                     break;
@@ -301,24 +346,33 @@ public class LabanDescriptors : MonoBehaviour
         return weight;
     }
 
-    IEnumerator GetMaxOverTime(ulong id, List<float> list, float seconds, Efforts effort)
+    IEnumerator CalculateFinalEffort(ulong id, List<float> list, float seconds, Efforts effort)
     {
-        //REMOVE ID AND JUST RETURN MAX ---- i.e. BodyWeightEffort[id] = StartCoroutine(GetMaxOverTime(List, seconds, trigger))
         effortCalculationsRunning[effort] = true;
         yield return new WaitForSeconds(seconds);
-
-        float[] array = list.ToArray();
-        float max = Mathf.Max(array);
-        list.Clear();
+        float[] array;
         effortCalculationsRunning[effort] = false;
+
         switch (effort)
         {
             case Efforts.Weight:
+                array = list.ToArray();
+                float max = Mathf.Max(array);
+                list.Clear();
                 yield return BodyWeightEffort[id] = max;
                 break;
             case Efforts.Space:
                 break;
             case Efforts.Time:
+                array = list.ToArray();
+                float cumulativeSum = 0;
+                for (int i = 0; i < array.Length; i++)
+                {
+                    cumulativeSum += array[i];
+                }
+                cumulativeSum /= array.Length;
+                list.Clear();
+                yield return BodyTimeEffort[id] = cumulativeSum;
                 break;
             case Efforts.Flow:
                 break;
