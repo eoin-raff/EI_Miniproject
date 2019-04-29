@@ -1,7 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-
 using Windows.Kinect;
 using Joint = Windows.Kinect.Joint;
 
@@ -220,21 +219,7 @@ public class LabanDescriptors : MonoBehaviour
 
             if (!effortCalculationsRunning[Efforts.Space])
                 StartCoroutine(CalculateFinalEffort(id, SpaceEffortRealTime[id], 0.05f, Efforts.Space));
-            
-
-            //FIXME
-            // UI ONLY WORKS WITH ONE BODY
-            if (BodyWeightEffort[id] > 0)
-                WeightEffort = BodyWeightEffort[id];
-
-            //if (BodyTimeEffort[id] > 0)
-                TimeEffort = BodyTimeEffort[id];
-
-            if (BodySpaceEffort[id] > 0)
-                SpaceEffort = BodySpaceEffort[id];
-
-            if (BodyFlowEffort[id] > 0)
-                FlowEffort = BodyFlowEffort[id];
+                
         }
         #endregion
 
@@ -314,7 +299,7 @@ public class LabanDescriptors : MonoBehaviour
     private float CalculateEffort(ulong id, Efforts effort)
     {
         List<JointType> joints = effortJoints[effort];
-        //Dictionary<JointType, Transform> JointTransforms = BodyJoints[id];
+        Dictionary<JointType, Transform> JointTransforms = BodyJoints[id];
         Dictionary<JointType, Vector3> velocity = BodyJoints_Velocity[id];
         Dictionary<JointType, Vector3> acceleration = BodyJoints_Acceleration[id];
         Dictionary<JointType, Vector3> jerk = BodyJoints_Jerk[id];
@@ -359,9 +344,13 @@ public class LabanDescriptors : MonoBehaviour
                 array = list.ToArray();
                 float max = Mathf.Max(array);
                 list.Clear();
-                yield return BodyWeightEffort[id] = max;
+                BodyWeightEffort[id] = max;
+                WeightEffort = BodyWeightEffort[id];
+                UIController.Instance.weightData.Add(WeightEffort);
                 break;
             case Efforts.Space:
+                SpaceEffort = BodySpaceEffort[id];
+                UIController.Instance.spaceData.Add(SpaceEffort);
                 break;
             case Efforts.Time:
                 array = list.ToArray();
@@ -372,9 +361,13 @@ public class LabanDescriptors : MonoBehaviour
                 }
                 cumulativeSum /= array.Length;
                 list.Clear();
-                yield return BodyTimeEffort[id] = cumulativeSum;
+                BodyTimeEffort[id] = cumulativeSum;
+                TimeEffort = BodyTimeEffort[id];
+                UIController.Instance.timeData.Add(TimeEffort);
                 break;
             case Efforts.Flow:
+                FlowEffort = BodyFlowEffort[id];
+                UIController.Instance.flowData.Add(FlowEffort);
                 break;
             default:
                 break;
