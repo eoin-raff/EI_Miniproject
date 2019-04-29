@@ -51,6 +51,7 @@ public class LabanDescriptors : MonoBehaviour
     private Dictionary<ulong, List<float>> WeightEffortCalculator = new Dictionary<ulong, List<float>>();
     public Dictionary<ulong, float> BodyWeightEffort = new Dictionary<ulong, float>();
 
+    public float WeightEffortValue { get; private set; }
 
     bool weightCRrunning = false;
 
@@ -130,6 +131,11 @@ public class LabanDescriptors : MonoBehaviour
             if (!weightCRrunning)
                 StartCoroutine(GetMaxOverTime(id, WeightEffortCalculator[id], 0.05f, weightCRrunning));
             print("Effort: " + BodyWeightEffort[id]);
+            // UI ONLY WORKS WITH ONE BODY
+            if (BodyWeightEffort[id] > 0)
+            {
+                WeightEffortValue = BodyWeightEffort[id];
+            }
         }
         #endregion
     }
@@ -213,6 +219,7 @@ public class LabanDescriptors : MonoBehaviour
 
     IEnumerator GetMaxOverTime(ulong id, List<float> list, float seconds, bool trigger)
     {
+        //REMOVE ID AND JUST RETURN MAX ---- i.e. BodyWeightEffort[id] = StartCoroutine(GetMaxOverTime(List, seconds, trigger))
         trigger = true;
         yield return new WaitForSeconds(seconds);
 
