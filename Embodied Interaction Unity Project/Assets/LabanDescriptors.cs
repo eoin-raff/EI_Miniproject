@@ -216,13 +216,13 @@ public class LabanDescriptors : MonoBehaviour
             FlowEffortRealTime[id].Add(CalculateEffort(id, Efforts.Flow));
 
             if (!effortCalculationsRunning[Efforts.Weight])
-                StartCoroutine(CalculateFinalEffort(id, WeightEffortRealTime[id], 0.05f, Efforts.Weight));
+                StartCoroutine(CalculateFinalEffort(id, WeightEffortRealTime[id], 0.5f, Efforts.Weight));
 
             if (!effortCalculationsRunning[Efforts.Time])
-                StartCoroutine(CalculateFinalEffort(id, TimeEffortRealTime[id], 0.05f, Efforts.Time));
+                StartCoroutine(CalculateFinalEffort(id, TimeEffortRealTime[id], 0.5f, Efforts.Time));
       
             if (!effortCalculationsRunning[Efforts.Flow])
-                StartCoroutine(CalculateFinalEffort(id, FlowEffortRealTime[id], 0.05f, Efforts.Flow));
+                StartCoroutine(CalculateFinalEffort(id, FlowEffortRealTime[id], 0.5f, Efforts.Flow));
 
             if (!effortCalculationsRunning[Efforts.Space])
                 StartCoroutine(CalculateFinalEffort(id, SpaceEffortRealTime[id], 0.5f, Efforts.Space));
@@ -242,7 +242,6 @@ public class LabanDescriptors : MonoBehaviour
                 FlowEffort = BodyFlowEffort[id];
         }
         #endregion
-
 
     }
 
