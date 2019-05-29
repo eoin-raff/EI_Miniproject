@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class StarController : MonoBehaviour
+public class ParticleController : MonoBehaviour
 {
     private Vector3 baseScale;
     private Material material;

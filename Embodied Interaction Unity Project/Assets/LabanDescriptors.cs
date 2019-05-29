@@ -21,10 +21,13 @@ public class LabanDescriptors : MonoBehaviour
     public float TimeEffort { get; private set; }
     public float SpaceEffort { get; private set; }
     public float FlowEffort { get; private set; }
+    public Vector3 RootDirection { get; private set; }
 
     //Kinect Dependencies
     public GameObject BodySourceManager;
     private BodySourceManager _BodyManager;
+
+    public GameObject jointPrefab;
 
     // All Bodies tracked by the Kinect
     private Dictionary<ulong, GameObject> _Bodies = new Dictionary<ulong, GameObject>();
@@ -240,6 +243,7 @@ public class LabanDescriptors : MonoBehaviour
 
             if (BodyFlowEffort[id] > 0)
                 FlowEffort = BodyFlowEffort[id];
+            RootDirection = BodyJoints_Velocity[id][JointType.SpineBase].normalized;
         }
         #endregion
 
@@ -248,6 +252,7 @@ public class LabanDescriptors : MonoBehaviour
     private GameObject CreateBodyObject(ulong id)
     {
         GameObject body = new GameObject("body_" + id);
+        body.tag = "Body";
         Dictionary<JointType, Transform> JointTransforms = new Dictionary<JointType, Transform>();
         Dictionary<JointType, Vector3> JointVelocity = new Dictionary<JointType, Vector3>();
         Dictionary<JointType, Vector3> JointPrevPos = new Dictionary<JointType, Vector3>();
@@ -256,7 +261,7 @@ public class LabanDescriptors : MonoBehaviour
 
         foreach (JointType joint in _Joints)
         {
-            GameObject jointObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            GameObject jointObj = Instantiate(jointPrefab, transform);//GameObject.CreatePrimitive(PrimitiveType.Cube); //put body prefabs here???
             jointObj.transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
             jointObj.name = joint.ToString();
             jointObj.transform.parent = body.transform;

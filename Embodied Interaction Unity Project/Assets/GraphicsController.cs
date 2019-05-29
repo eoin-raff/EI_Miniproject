@@ -11,11 +11,14 @@ public class GraphicsController : Singleton<GraphicsController>
     public float Flow { get; private set; }
     public float Space { get; private set; }
 
+    public Vector3 RootDirection { get; private set; }
+
     void Update()
     {
         Weight = laban.WeightEffort;
         Time = laban.TimeEffort;
         Flow = laban.FlowEffort;
         Space = laban.SpaceEffort;
+        RootDirection = laban.RootDirection;
     }
 }
