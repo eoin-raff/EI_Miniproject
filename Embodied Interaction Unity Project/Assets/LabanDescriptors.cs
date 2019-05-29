@@ -389,7 +389,6 @@ public class LabanDescriptors : MonoBehaviour
                 list.Clear();
                 BodyWeightEffort[id] = max;
                 WeightEffort = BodyWeightEffort[id];
-                UIController.Instance.weightData.Add(WeightEffort);
                 break;
 
             case Efforts.Space:
@@ -416,7 +415,6 @@ public class LabanDescriptors : MonoBehaviour
                 list.Clear();
                 BodyTimeEffort[id] = cumulativeSum;
                 TimeEffort = BodyTimeEffort[id];
-                UIController.Instance.timeData.Add(TimeEffort);
                 break;
 
             case Efforts.Flow:
@@ -430,7 +428,6 @@ public class LabanDescriptors : MonoBehaviour
                 list.Clear();
                 BodyFlowEffort[id] = sum;
                 FlowEffort = BodyFlowEffort[id];
-                UIController.Instance.flowData.Add(FlowEffort);
                 break;
             default:
                 break;

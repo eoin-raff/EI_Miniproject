@@ -6,30 +6,30 @@ public class ParticleController : MonoBehaviour
 {
     private Vector3 baseScale;
     private Material material;
+    private TrailRenderer trail;
 
     private Color newColor;
 
     public float logValue;
+
+
     void Start()
     {
         newColor = Color.black;
         baseScale = transform.localScale;
         material = GetComponent<Renderer>().material;
+        trail = GetComponent<TrailRenderer>();
     }
 
     // Update is called once per frame
     void Update()
     {
         ChangeSize(GraphicsController.Instance.Time / 5f);
-        
-        //        print(Mathf.Log(GraphicsController.Instance.Weight, logValue));
-        Color targetColor = new Color(
-            Mathf.Log(GraphicsController.Instance.Weight, logValue), //material.color.r,
-            Mathf.Log(GraphicsController.Instance.Weight, logValue), //material.color.g,
-            Mathf.Log(GraphicsController.Instance.Weight, logValue), //material.color.b,
-            1);
-        //        newColor = Color.Lerp(newColor, targetColor, Time.deltaTime);
-        material.color = targetColor;// newColor;
+
+        Color targetColor = new Color(1, 1, 1, Mathf.Max(0.1f, Mathf.Log(GraphicsController.Instance.Weight, logValue)));
+        material.color = targetColor;
+
+        trail.colorGradient.colorKeys[0].color = targetColor;
     }
 
     private void ReturnToBaseScale()
