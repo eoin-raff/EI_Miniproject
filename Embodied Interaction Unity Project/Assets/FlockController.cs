@@ -6,7 +6,7 @@ public class FlockController : MonoBehaviour
 {
     public float minVelocity = 5;
     public float maxVelocity = 20;
-    public float randomness = 1;
+    public float Randomness { get; set; }
     public int flockSize = 20;
     public FlockBehaviour prefab;
     public Transform target;
@@ -14,6 +14,12 @@ public class FlockController : MonoBehaviour
     internal Vector3 flockCenter;
     internal Vector3 flockVelocity;
     internal Vector3 targetVelocity;
+
+    public float Cohesion { get; set; }
+    public float Steering {get; set;}   //High Space
+    public float Seeking {get; set;}    //based on Low Flow
+    public float Avoidance {get; set;}  //Based on High Flow
+    //public float Directness {get; set;} //High Space Effort
 
     List<FlockBehaviour> particles = new List<FlockBehaviour>();
 
@@ -25,16 +31,21 @@ public class FlockController : MonoBehaviour
         }
         for (int i = 0; i < flockSize; i++)
         {
-            FlockBehaviour particle = Instantiate(prefab, transform.position, transform.rotation) as FlockBehaviour;
-            Collider collider = GetComponent<Collider>();
-            particle.transform.parent = transform;
-            particle.transform.localPosition = new Vector3(
-                            Random.value * collider.bounds.size.x,
-                            Random.value * collider.bounds.size.y,
-                            Random.value * collider.bounds.size.z) - collider.bounds.extents;
-            particle.controller = this;
-            particles.Add(particle);
+            CreateParticle();
         }
+    }
+
+    private void CreateParticle()
+    {
+        FlockBehaviour particle = Instantiate(prefab, transform.position, transform.rotation) as FlockBehaviour;
+        Collider collider = GetComponent<Collider>();
+        particle.transform.parent = transform;
+        particle.transform.localPosition = new Vector3(
+                        Random.value * collider.bounds.size.x,
+                        Random.value * collider.bounds.size.y,
+                        Random.value * collider.bounds.size.z) - collider.bounds.extents;
+        particle.controller = this;
+        particles.Add(particle);
     }
 
     void Update()
@@ -53,7 +64,11 @@ public class FlockController : MonoBehaviour
         flockCenter = center / flockSize;
         flockVelocity = velocity / flockSize;
         targetVelocity = GraphicsController.Instance.RootDirection;
-        randomness = GraphicsController.Instance.Flow;
-        
+        Randomness = Mathf.Lerp(15, 2, Mathf.InverseLerp(0, 30, GraphicsController.Instance.Space));
+
+        Cohesion = Mathf.Lerp(1f, -1f, Mathf.InverseLerp(200, 1500, GraphicsController.Instance.Flow));
+        Avoidance = Mathf.LerpUnclamped(10, 1000, Mathf.InverseLerp(200, 1500, GraphicsController.Instance.Flow));
+        Seeking = Mathf.LerpUnclamped(10, 0, Mathf.InverseLerp(200, 1500, GraphicsController.Instance.Flow));
+        Steering = Mathf.Lerp(0, 10, Mathf.InverseLerp(0, 30, GraphicsController.Instance.Space));
     }
 }

@@ -20,10 +20,8 @@ public class ParticleController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (GraphicsController.Instance.Time > 2f)
-        {
-            ChangeSize(GraphicsController.Instance.Time / 10f);
-        }
+        ChangeSize(GraphicsController.Instance.Time / 5f);
+        
         //        print(Mathf.Log(GraphicsController.Instance.Weight, logValue));
         Color targetColor = new Color(
             Mathf.Log(GraphicsController.Instance.Weight, logValue), //material.color.r,

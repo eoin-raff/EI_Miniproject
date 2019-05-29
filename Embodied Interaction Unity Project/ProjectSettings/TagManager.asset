@@ -6,6 +6,7 @@ TagManager:
   tags:
   - Joint
   - Body
+  - Particle
   layers:
   - Default
   - TransparentFX
