@@ -26,7 +26,7 @@ public class ParticleController : MonoBehaviour
     {
         ChangeSize(GraphicsController.Instance.Time / 5f);
 
-        Color targetColor = new Color(1, 1, 1, Mathf.Max(0.1f, Mathf.Log(GraphicsController.Instance.Weight, logValue)));
+        Color targetColor = new Color(1, 1, 1, Mathf.Max(0.5f, Mathf.Log(GraphicsController.Instance.Weight, logValue)));
         material.color = targetColor;
 
         trail.colorGradient.colorKeys[0].color = targetColor;
